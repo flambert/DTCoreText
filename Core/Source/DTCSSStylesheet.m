@@ -167,11 +167,11 @@ extern unsigned int default_css_len;
 			[tmpDict addEntriesFromDictionary:ruleDictionary];
 
 			// save it
-			[self.styles setObject:tmpDict forKey:cleanSelector];
+			[_styles setObject:tmpDict forKey:cleanSelector];
 		}
 		else 
 		{
-			[self.styles setObject:ruleDictionary forKey:cleanSelector];
+			[_styles setObject:ruleDictionary forKey:cleanSelector];
 		}
 	}
 }
@@ -325,7 +325,7 @@ extern unsigned int default_css_len;
 
 - (void)mergeStylesheet:(DTCSSStylesheet *)stylesheet
 {
-	[self.styles addEntriesFromDictionary:stylesheet.styles];
+	[_styles addEntriesFromDictionary:stylesheet.styles];
 }
 
 
