@@ -6,21 +6,8 @@
 //  Copyright (c) 2012 Drobnik.com. All rights reserved.
 //
 
+#import "DTCoreText.h"
 #import "DTHTMLAttributedStringBuilder.h"
-
-#import "DTCoreTextConstants.h"
-#import "DTCSSStylesheet.h"
-#import "DTCoreTextFontDescriptor.h"
-#import "DTCoreTextParagraphStyle.h"
-#import "DTTextAttachment.h"
-
-#import "DTColor+HTML.h"
-#import "DTImage+HTML.h"
-
-#import "NSString+HTML.h"
-#import "NSString+CSS.h"
-#import "NSMutableString+HTML.h"
-
 
 @interface DTHTMLAttributedStringBuilder ()
 
@@ -78,10 +65,6 @@
 		
 		// documentAttributes ignored for now
 		
-		// register default handlers
-		[self _registerTagStartHandlers];
-		[self _registerTagEndHandlers];
-		
 		//GCD setup
 		_stringAssemblyQueue = dispatch_queue_create("DTHTMLAttributedStringBuilder", 0);
 		_stringAssemblyGroup = dispatch_group_create();
@@ -108,6 +91,10 @@
 		return NO;
 	}
 	
+	// register default handlers
+	[self _registerTagStartHandlers];
+	[self _registerTagEndHandlers];
+	
  	// Specify the appropriate text encoding for the passed data, default is UTF8 
 	NSString *textEncodingName = [_options objectForKey:NSTextEncodingNameDocumentOption];
 	NSStringEncoding encoding = NSUTF8StringEncoding; // default
@@ -128,26 +115,6 @@
 	// use baseURL from options if present
 	baseURL = [_options objectForKey:NSBaseURLDocumentOption];
 	
-	
-	// Make it a string
-	NSString *htmlString;
-	
-	if (encoding == NSUTF8StringEncoding)
-	{
-		// this method can fix malformed UTF8
-		htmlString = [[NSString alloc] initWithPotentiallyMalformedUTF8Data:_data];
-	}
-	else
-	{
-		// use the specified encoding
-		htmlString = [[NSString alloc] initWithData:_data encoding:encoding];
-	}
-	
-	if (!htmlString)
-	{
-		return NO;
-	}
-	
 	// the combined style sheet for entire document
 	_globalStyleSheet = [DTCSSStylesheet defaultStyleSheet]; 
 	
@@ -164,10 +131,6 @@
 	
 	needsListItemStart = NO;
 	needsNewLineBefore = NO;
-	
-	// we cannot skip any characters, NLs turn into spaces and multi-spaces get compressed to singles
-	NSScanner *scanner = [NSScanner scannerWithString:htmlString];
-	scanner.charactersToBeSkipped = nil;
 	
 	// base tag with font defaults
 	defaultFontDescriptor = [[DTCoreTextFontDescriptor alloc] initWithFontAttributes:nil];
@@ -283,6 +246,10 @@
 	dispatch_group_wait(_stringParsingGroup, DISPATCH_TIME_FOREVER);
 	dispatch_group_wait(_stringAssemblyGroup, DISPATCH_TIME_FOREVER);
 	
+	// clean up handlers because they retained self
+	_tagStartHandlers = nil;
+	_tagEndHandlers = nil;
+	
 	return result;
 }
 
@@ -295,6 +262,11 @@
 
 - (void)_registerTagStartHandlers
 {
+	if (_tagStartHandlers)
+	{
+		return;
+	}
+	
 	_tagStartHandlers = [[NSMutableDictionary alloc] init];
 	
 	void (^imgBlock)(void) = ^ 
@@ -557,7 +529,7 @@
 		{
 			if ([tmpString length] && !outputHasNewline)
 			{
-				[tmpString appendNakedString:@"\n"];
+				[tmpString appendString:@"\n"];
 				outputHasNewline = YES;
 			}
 			
@@ -698,6 +670,11 @@
 
 - (void)_registerTagEndHandlers
 {
+	if (_tagEndHandlers)
+	{
+		return;
+	}
+
 	_tagEndHandlers = [[NSMutableDictionary alloc] init];
 	
 	void (^bodyBlock)(void) = ^ 
@@ -838,7 +815,8 @@
 			counter = [effectiveList startingItemNumber];
 		}
 		
-		NSAttributedString *prefixString = [currentTag prefixForListItemWithCounter:counter];
+		NSDictionary *tagAttributes = [currentTag attributesDictionary];
+		NSAttributedString *prefixString = [NSAttributedString prefixForListItemWithCounter:counter listStyle:effectiveList attributes:tagAttributes];
 		
 		if (prefixString)
 		{
@@ -964,7 +942,7 @@
 			{
 				if (currentTag.displayStyle != DTHTMLElementDisplayStyleBlock)
 				{
-					[_currentTagContents removeWhitespaceSuffix];
+					[_currentTagContents removeTrailingWhitespace];
 				}
 				
 				removeUnflushedWhitespace = YES;
@@ -1036,7 +1014,7 @@
 			// trim off white space at end if block
 			if (currentTag.displayStyle != DTHTMLElementDisplayStyleInline)
 			{
-				[_currentTagContents removeWhitespaceSuffix];
+				[_currentTagContents removeTrailingWhitespace];
 			}
 			
 			[self _flushCurrentTagContent:_currentTagContents];

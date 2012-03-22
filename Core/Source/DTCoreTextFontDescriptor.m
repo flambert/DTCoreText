@@ -31,7 +31,7 @@ static dispatch_queue_t _fontQueue;
 	if (self == [DTCoreTextFontDescriptor class]) 
 	{
 		_fontCache = [[NSCache alloc] init];
-
+		
 		_fontQueue = dispatch_queue_create("DTCoreTextFontDescriptor", 0);
 		
 		// init/load of overrides
@@ -62,25 +62,25 @@ static dispatch_queue_t _fontQueue;
 
 + (void)setSmallCapsFontName:(NSString *)fontName forFontFamily:(NSString *)fontFamily bold:(BOOL)bold italic:(BOOL)italic
 {
-		NSString *key = [NSString stringWithFormat:@"%@-%d-%d-smallcaps", fontFamily, bold, italic];
-		[_fontOverrides setObject:fontName forKey:key];
+	NSString *key = [NSString stringWithFormat:@"%@-%d-%d-smallcaps", fontFamily, bold, italic];
+	[_fontOverrides setObject:fontName forKey:key];
 }
 
 + (NSString *)smallCapsFontNameforFontFamily:(NSString *)fontFamily bold:(BOOL)bold italic:(BOOL)italic
 {
-		NSString *key = [NSString stringWithFormat:@"%@-%d-%d-smallcaps", fontFamily, bold, italic];
-		return [_fontOverrides objectForKey:key];
+	NSString *key = [NSString stringWithFormat:@"%@-%d-%d-smallcaps", fontFamily, bold, italic];
+	return [_fontOverrides objectForKey:key];
 }
 
 + (void)setOverrideFontName:(NSString *)fontName forFontFamily:(NSString *)fontFamily bold:(BOOL)bold italic:(BOOL)italic
 {
-		NSString *key = [NSString stringWithFormat:@"%@-%d-%d-override", fontFamily, bold, italic];
-		[_fontOverrides setObject:fontName forKey:key];
+	NSString *key = [NSString stringWithFormat:@"%@-%d-%d-override", fontFamily, bold, italic];
+	[_fontOverrides setObject:fontName forKey:key];
 }
 
 + (NSString *)overrideFontNameforFontFamily:(NSString *)fontFamily bold:(BOOL)bold italic:(BOOL)italic
 {
-		NSString *key = [NSString stringWithFormat:@"%@-%d-%d-override", fontFamily, bold, italic];
+	NSString *key = [NSString stringWithFormat:@"%@-%d-%d-override", fontFamily, bold, italic];
 	return [_fontOverrides objectForKey:key];
 }
 
@@ -280,7 +280,7 @@ static dispatch_queue_t _fontQueue;
 		NSNumber *selNum = [NSNumber numberWithInteger:3];
 		
 		NSDictionary *setting = [NSDictionary dictionaryWithObjectsAndKeys:selNum, (id)kCTFontFeatureSelectorIdentifierKey,
-														 typeNum, (id)kCTFontFeatureTypeIdentifierKey, nil];
+								 typeNum, (id)kCTFontFeatureTypeIdentifierKey, nil];
 		
 		NSArray *featureSettings = [NSArray arrayWithObject:setting];
 		
@@ -343,6 +343,22 @@ static dispatch_queue_t _fontQueue;
 }
 
 #pragma mark Finding Font
+
+- (BOOL)_fontIsOblique:(CTFontRef)font
+{
+	NSDictionary *traits = (__bridge_transfer NSDictionary *)CTFontCopyTraits(font);
+	
+	CGFloat slant = [[traits objectForKey:(id)kCTFontSlantTrait] floatValue];
+	BOOL hasItalicTrait = ([[traits objectForKey:(id)kCTFontSymbolicTrait] unsignedIntValue] & kCTFontItalicTrait) ==kCTFontItalicTrait;
+
+	if (hasItalicTrait || slant!=0) 
+	{
+		return YES;
+	}
+
+	return NO;
+	
+}
 
 - (CTFontRef)_findOrMakeMatchingFont
 {
@@ -424,8 +440,25 @@ static dispatch_queue_t _fontQueue;
 				matchingFont = nil;
 			}
 		}
-		CFRelease(fontDesc);
 		
+		// check if we indeed got an oblique font if we wanted one
+		
+		if (matchingFont)
+		{
+			if (self.italicTrait)
+			{
+				if (![self _fontIsOblique:matchingFont])
+				{
+					// need to synthesize slant
+					CGAffineTransform slantMatrix = { 1, 0, 0.25, 1, 0, 0 };
+					
+					CFRelease(matchingFont);
+					matchingFont = CTFontCreateWithFontDescriptor(fontDesc, _pointSize, &slantMatrix);
+				}
+			}
+		}
+		
+		CFRelease(fontDesc);
 	}
 	
 	if (matchingFont)
@@ -589,7 +622,7 @@ static dispatch_queue_t _fontQueue;
 	{
 		[retString appendString:@"font-weight:bold;"];
 	}
-
+	
 	// return nil if no content
 	if ([retString length])
 	{

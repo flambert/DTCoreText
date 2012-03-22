@@ -15,7 +15,6 @@
 @interface DTCoreTextLayoutLine ()
 
 @property (nonatomic, strong) NSArray *glyphRuns;
-@property (nonatomic, copy) NSAttributedString *attributedString;
 
 @end
 
@@ -23,7 +22,6 @@
 {
 	CGRect _frame;
 	CTLineRef _line;
-	NSAttributedString *_attributedString;
 	
 	CGPoint _baselineOrigin;
 	
@@ -39,15 +37,12 @@
 	dispatch_queue_t _syncQueue;
 }
 
-- (id)initWithLine:(CTLineRef)line layoutFrame:(DTCoreTextLayoutFrame *)layoutFrame
+- (id)initWithLine:(CTLineRef)line
 {
 	if ((self = [super init]))
 	{
 		_line = line;
 		CFRetain(_line);
-
-		NSAttributedString *globalString = [layoutFrame attributedStringFragment];
-		self.attributedString = [globalString attributedSubstringFromRange:[self stringRange]];
 		
 		// get a global queue
 		_syncQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -62,7 +57,7 @@
 
 - (NSString *)description
 {
-	return [NSString stringWithFormat:@"<%@ origin=%@ frame=%@ %@ '%@'>", [self class], NSStringFromCGPoint(_baselineOrigin), NSStringFromCGRect(self.frame), NSStringFromRange([self stringRange]), [_attributedString string]];
+	return [NSString stringWithFormat:@"<%@ origin=%@ frame=%@ range=%@", [self class], NSStringFromCGPoint(_baselineOrigin), NSStringFromCGRect(self.frame), NSStringFromRange([self stringRange])];
 }
 
 - (NSRange)stringRange
@@ -93,10 +88,7 @@
 	// make this line justified
 	CTLineRef justifiedLine = CTLineCreateJustifiedLine(_line, justificationFactor, justificationWidth);
 
-	DTCoreTextLayoutLine *newLine = [[DTCoreTextLayoutLine alloc] initWithLine:justifiedLine layoutFrame:nil];
-	
-	// we don't need the layout frame because we directly transfer a copy of the string
-	newLine.attributedString = _attributedString;
+	DTCoreTextLayoutLine *newLine = [[DTCoreTextLayoutLine alloc] initWithLine:justifiedLine];
 	
 	CFRelease(justifiedLine);
 	
@@ -287,61 +279,6 @@
 	});
 }
 
-// returns the maximum paragraph spacing for this line
-- (CGFloat)paragraphSpacing:(BOOL)zeroNonLast
-{
-	// a paragraph spacing only is effective for last line in paragraph
-	if (![[_attributedString string] hasSuffix:@"\n"] && zeroNonLast)
-	{
-		return 0;
-	}
-
-	__block CGFloat retSpacing = 0;
-
-	NSRange allRange = NSMakeRange(0, [_attributedString length]);
-	[_attributedString enumerateAttribute:(id)kCTParagraphStyleAttributeName inRange:allRange options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
-					   usingBlock:^(id value, NSRange range, BOOL *stop) {
-						   CTParagraphStyleRef paragraphStyle = (__bridge CTParagraphStyleRef)value;
-						   
-						   float paraSpacing;
-						   
-						   CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierParagraphSpacing, sizeof(paraSpacing), &paraSpacing);
-						   
-						   retSpacing = MAX(retSpacing, paraSpacing);
-					   }];
-	
-	return retSpacing;
-}
-
-- (CGFloat)paragraphSpacing {
-	return [self paragraphSpacing:YES];
-}
-
-// gets the line height multiplier used in this line
-- (CGFloat)calculatedLineHeightMultiplier
-{
-	if (!_didCalculateMetrics)
-	{
-		[self _calculateMetrics];
-	}
-	
-	// take lineHeightMultiple into account
-	NSRange range = NSMakeRange(0, [_attributedString length]);
-	__block float lineMultiplier = 1.;
-	[_attributedString enumerateAttribute:(id)kCTParagraphStyleAttributeName inRange:range options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
-							   usingBlock:^(id value, NSRange range, BOOL *stop) {
-								   CTParagraphStyleRef paragraphStyle = (__bridge CTParagraphStyleRef)value;
-								   								   
-								   CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierLineHeightMultiple, sizeof(lineMultiplier), &lineMultiplier);
-																
-								   *stop = YES;
-							   }];
-	
-
-	if (lineMultiplier == 0.) lineMultiplier = 1.;
-	return lineMultiplier;
-}
-
 
 // calculates the extra space that is before every line even though the leading is zero
 // http://stackoverflow.com/questions/5511830/how-does-line-spacing-work-in-core-text-and-why-is-it-different-from-nslayoutm
@@ -390,108 +327,33 @@
 }
 
 
-// returns line height if it is specified in any paragraph style in this line, zero if not specified
-- (CGFloat)calculatedLineHeight
-{
-	NSRange range = NSMakeRange(0, [_attributedString length]);
-	
-	__block float lineHeight = 0;
-	
-	[_attributedString enumerateAttribute:(id)kCTParagraphStyleAttributeName inRange:range options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
-							   usingBlock:^(id value, NSRange range, BOOL *stop) {
-								   CTParagraphStyleRef paragraphStyle = (__bridge CTParagraphStyleRef)value;
-								   
-								   CGFloat minimumLineHeight = 0;
-								   CGFloat maximumLineHeight = 0;
-								   
-								   CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierMinimumLineHeight, sizeof(minimumLineHeight), &minimumLineHeight);
-								   CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierMaximumLineHeight, sizeof(maximumLineHeight), &maximumLineHeight);
-								   
-								   if (lineHeight<minimumLineHeight)
-								   {
-									   lineHeight = minimumLineHeight;
-								   }
-								   
-								   if (maximumLineHeight>0 && lineHeight>maximumLineHeight)
-								   {
-									   lineHeight = maximumLineHeight;
-								   }
-							   }];	
-	return lineHeight;
-}
-
-
-- (CGPoint)baselineOriginToPositionAfterLine:(DTCoreTextLayoutLine *)previousLine
-{
-	CGPoint lineOrigin = previousLine.baselineOrigin;
-
-	CTParagraphStyleRef paragraphStyle = (__bridge CTParagraphStyleRef)[_attributedString 
-																		attribute:(id)kCTParagraphStyleAttributeName
-																		atIndex:0 effectiveRange:NULL];
-	
-	// get line height in px if it is specified for this line
-	CGFloat lineHeight = 0;
-	CGFloat minLineHeight = 0;
-	CGFloat maxLineHeight = 0;
-	
-	if (CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierMinimumLineHeight, sizeof(minLineHeight), &minLineHeight))
-	{
-		if (lineHeight<minLineHeight)
-		{
-			lineHeight = minLineHeight;
-		}
-	}
-	
-	if (CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierMaximumLineHeight, sizeof(maxLineHeight), &maxLineHeight))
-	{
-		if (maxLineHeight>0 && lineHeight>maxLineHeight)
-		{
-			lineHeight = maxLineHeight;
-		}
-	}
-	
-	// get the correct baseline origin
-	if (lineHeight==0)
-	{
-		lineHeight = previousLine.descent + self.ascent;
-	}
-	
-	lineHeight += [previousLine paragraphSpacing:YES];
-	lineHeight += self.leading;
-	
-	lineOrigin.y += lineHeight;
-
-	// preserve own baseline x
-	lineOrigin.x = _baselineOrigin.x;
-	
-	return lineOrigin;
-}
-
 #pragma mark Properties
 - (NSArray *)glyphRuns
 {
-	if (!_glyphRuns)
-	{
-		CFArrayRef runs = CTLineGetGlyphRuns(_line);
-		
-        if (runs) {
-		CGFloat offset = 0;
-		
-		NSMutableArray *tmpArray = [[NSMutableArray alloc] initWithCapacity:CFArrayGetCount(runs)];
-		
-		for (id oneRun in (__bridge NSArray *)runs)
+	dispatch_sync(_syncQueue, ^{
+		if (!_glyphRuns)
 		{
-			//CGPoint runOrigin = CGPointMake(_baselineOrigin.x + offset, _baselineOrigin.y);
+			// run array is owned by line
+			NSArray *runs = (__bridge NSArray *)CTLineGetGlyphRuns(_line);
 			
-			DTCoreTextGlyphRun *glyphRun = [[DTCoreTextGlyphRun alloc] initWithRun:(__bridge CTRunRef)oneRun layoutLine:self offset:offset];
-			[tmpArray addObject:glyphRun];
-			
-			offset += glyphRun.frame.size.width;
+			if (runs) 
+			{
+				CGFloat offset = 0;
+				
+				NSMutableArray *tmpArray = [[NSMutableArray alloc] initWithCapacity:[runs count]];
+				
+				for (id oneRun in runs)
+				{
+					DTCoreTextGlyphRun *glyphRun = [[DTCoreTextGlyphRun alloc] initWithRun:(__bridge CTRunRef)oneRun layoutLine:self offset:offset];
+					[tmpArray addObject:glyphRun];
+					
+					offset += glyphRun.frame.size.width;
+				}
+				
+				_glyphRuns = tmpArray;
+			}
 		}
-		
-		_glyphRuns = tmpArray;
-        }
-	}
+	});
 	
 	return _glyphRuns;
 }
@@ -566,6 +428,5 @@
 @synthesize trailingWhitespaceWidth;
 
 @synthesize baselineOrigin = _baselineOrigin;
-@synthesize attributedString = _attributedString;
 
 @end
