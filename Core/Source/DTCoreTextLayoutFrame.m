@@ -153,7 +153,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 	paragraphMetrics previousParaMetrics = {0};
 	
 	lineMetrics currentLineMetrics;
-	lineMetrics previousLineMetrics;
+//	lineMetrics previousLineMetrics;
 	
 	DTTextBlock *currentTextBlock = nil;
 	DTTextBlock *previousTextBlock = nil;
@@ -403,7 +403,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		lineRange.location += lineRange.length;
 		
 		previousLine = newLine;
-		previousLineMetrics = currentLineMetrics;
+//		previousLineMetrics = currentLineMetrics;
 	} 
 	while (lineRange.location < maxIndex);
 	
