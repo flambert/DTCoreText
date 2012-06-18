@@ -65,9 +65,17 @@
 - (NSRange)rangeOfTextBlock:(DTTextBlock *)textBlock atIndex:(NSUInteger)location;
 
 /**
+ Returns the range of the given href anchor.
+ 
+ @param list The text block.
+ @param anchorName The name of the anchor.
+ @returns The range of the given anchor.
+ */
+- (NSRange)rangeOfAnchorNamed:(NSString *)anchorName;
+
+/**
  @name Converting to Other Representations
  */
-
 
 /**
  Encodes the receiver into a generic HTML prepresentation.
@@ -97,11 +105,10 @@
  
  @param listCounter The value for the list item.
  @param listStyle The list style
+ @param listIndent The amount in px to indent the list
  @param attributes The attribute dictionary for the text to be prefixed
  @returns An attributed string with the list prefix
  */
-+ (NSAttributedString *)prefixForListItemWithCounter:(NSUInteger)listCounter listStyle:(DTCSSListStyle *)listStyle attributes:(NSDictionary *)attributes;
-
-
++ (NSAttributedString *)prefixForListItemWithCounter:(NSUInteger)listCounter listStyle:(DTCSSListStyle *)listStyle listIndent:(CGFloat)listIndent attributes:(NSDictionary *)attributes;
 
 @end

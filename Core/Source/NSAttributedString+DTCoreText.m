@@ -9,13 +9,6 @@
 #import "DTCoreText.h"
 #import "NSAttributedString+DTCoreText.h"
 
-// use smaller list indent on iPhone OS
-#if TARGET_OS_IPHONE
-#define SPECIAL_LIST_INDENT		27.0f
-#else
-#define SPECIAL_LIST_INDENT		36.0f
-#endif
-
 @implementation NSAttributedString (DTCoreText)
 
 #pragma mark Text Attachments
@@ -195,6 +188,21 @@
 - (NSRange)rangeOfTextBlock:(DTTextBlock *)textBlock atIndex:(NSUInteger)location
 {
 	return [self _rangeOfObject:textBlock inArrayBehindAttribute:DTTextBlocksAttribute atIndex:location];
+}
+
+- (NSRange)rangeOfAnchorNamed:(NSString *)anchorName
+{
+	__block NSRange foundRange = NSMakeRange(0, NSNotFound);
+	
+	[self enumerateAttribute:DTAnchorAttribute inRange:NSMakeRange(0, [self length]) options:0 usingBlock:^(NSString *value, NSRange range, BOOL *stop) {
+		if ([value isEqualToString:anchorName])
+		{
+			*stop = YES;
+			foundRange = range;
+		}
+	}];
+	
+	return foundRange;
 }
 
 #pragma mark HTML Encoding
@@ -741,7 +749,7 @@
 }
 
 #pragma Generating Special Attributed Strings
-+ (NSAttributedString *)prefixForListItemWithCounter:(NSUInteger)listCounter listStyle:(DTCSSListStyle *)listStyle attributes:(NSDictionary *)attributes
++ (NSAttributedString *)prefixForListItemWithCounter:(NSUInteger)listCounter listStyle:(DTCSSListStyle *)listStyle listIndent:(CGFloat)listIndent attributes:(NSDictionary *)attributes
 {
 	// get existing values from attributes
 	CTParagraphStyleRef paraStyle = (__bridge CTParagraphStyleRef)[attributes objectForKey:(id)kCTParagraphStyleAttributeName];
@@ -757,12 +765,15 @@
 		
 		paragraphStyle.tabStops = nil;
 		
-		paragraphStyle.headIndent = SPECIAL_LIST_INDENT;
+		paragraphStyle.headIndent = listIndent;
 		paragraphStyle.paragraphSpacing = 0;
 		
-		// first tab is to right-align bullet, numbering against
-		CGFloat tabOffset = paragraphStyle.headIndent - 5.0f*1.0; // TODO: change with font size
-		[paragraphStyle addTabStopAtPosition:tabOffset alignment:kCTRightTextAlignment];
+		if (listStyle.type != DTCSSListStyleTypeNone)
+		{
+			// first tab is to right-align bullet, numbering against
+			CGFloat tabOffset = paragraphStyle.headIndent - 5.0f*1.0; // TODO: change with font size
+			[paragraphStyle addTabStopAtPosition:tabOffset alignment:kCTRightTextAlignment];
+		}
 		
 		// second tab is for the beginning of first line after bullet
 		[paragraphStyle addTabStopAtPosition:paragraphStyle.headIndent alignment:	kCTLeftTextAlignment];	

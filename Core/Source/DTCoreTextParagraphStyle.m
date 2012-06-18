@@ -10,13 +10,6 @@
 
 static NSCache *_paragraphStyleCache;
 
-// use smaller list indent on iPhone OS
-#if TARGET_OS_IPHONE
-#define SPECIAL_LIST_INDENT		27.0f
-#else
-#define SPECIAL_LIST_INDENT		36.0f
-#endif
-
 static dispatch_semaphore_t selfLock;
 
 @implementation DTCoreTextParagraphStyle
@@ -42,6 +35,23 @@ static dispatch_semaphore_t selfLock;
 	return [[DTCoreTextParagraphStyle alloc] init];
 }
 
++ (NSString *)niceKeyFromParagraghStyle:(CTParagraphStyleRef)ctParagraphStyle {
+	
+	// this is naughty: CTParagraphStyle has a description
+	NSString *key = [(__bridge id)ctParagraphStyle description];
+	
+	NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"0x[0123456789abcdef]{1,8}"
+																																				 options:NSRegularExpressionCaseInsensitive
+																																					 error:nil];
+	
+	NSString *newKey = [regex stringByReplacingMatchesInString:key 
+																										 options:0 
+																											 range:NSMakeRange(0, [key length]) 
+																								withTemplate:@""];
+	
+	return newKey;	
+}
+
 + (DTCoreTextParagraphStyle *)paragraphStyleWithCTParagraphStyle:(CTParagraphStyleRef)ctParagraphStyle
 {
 	DTCoreTextParagraphStyle *returnParagraphStyle = NULL;
@@ -58,9 +68,7 @@ static dispatch_semaphore_t selfLock;
 	dispatch_semaphore_wait(selfLock, DISPATCH_TIME_FOREVER);
 	{
 		
-		// this is naughty: CTParagraphStyle has a description
-		NSString *key = [(__bridge id)ctParagraphStyle description];
-		
+		NSString *key = [self niceKeyFromParagraghStyle:ctParagraphStyle];
 		returnParagraphStyle = [_paragraphStyleCache objectForKey:key];
 		
 		if (!returnParagraphStyle) 
@@ -87,7 +95,7 @@ static dispatch_semaphore_t selfLock;
 		minimumLineHeight = 0.0;
 		maximumLineHeight = 0.0;
 		paragraphSpacing = 0.0;
-		listIndent = SPECIAL_LIST_INDENT;
+		listIndent = 0;
 	}
 	
 	return self;
