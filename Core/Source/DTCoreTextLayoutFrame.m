@@ -8,6 +8,7 @@
 
 #import "DTCoreText.h"
 #import "DTCoreTextLayoutFrame.h"
+#import "DTVersion.h"
 
 // global flag that shows debug frames
 static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
@@ -29,7 +30,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 	NSRange _requestedStringRange;
 	NSRange _stringRange;
 	
-	NSInteger tag;
+	//NSInteger _tag;
 	
 	DTCoreTextLayoutFrameTextBlockHandler _textBlockHandler;
 }
@@ -170,7 +171,6 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		}
 		
 		BOOL isAtBeginOfParagraph = (currentParagraphRange.location == lineRange.location);
-		BOOL isAtEndOfParagraph    = (currentParagraphRange.location+currentParagraphRange.length == lineRange.location-1);
 		
 		CGFloat offset = 0;
 		
@@ -236,6 +236,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		CGFloat maxLineHeight = 0;
 		
 		BOOL usesSyntheticLeading = NO;
+		BOOL usesForcedLineHeight = NO;
 		
 		if (currentLineMetrics.leading == 0.0f)
 		{
@@ -261,6 +262,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		{
 			if (lineHeight<minLineHeight)
 			{
+				usesForcedLineHeight = YES;
 				lineHeight = minLineHeight;
 			}
 		}
@@ -322,6 +324,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		{
 			if (maxLineHeight>0 && lineHeight>maxLineHeight)
 			{
+				usesForcedLineHeight = YES;
 				lineHeight = maxLineHeight;
 			}
 		}
@@ -375,7 +378,11 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 				
 			case kCTJustifiedTextAlignment:
 			{
-				// only justify if not last line and if the line widht is longer than 60% of the frame to avoid over-stretching
+				BOOL isAtEndOfParagraph    = (currentParagraphRange.location+currentParagraphRange.length <= lineRange.location+lineRange.length || 		// JTL 28/June/2012
+					[[_attributedStringFragment string] characterAtIndex:lineRange.location+lineRange.length-1]==0x2028);									// JTL 28/June/2012
+
+				// only justify if not last line, not <br>, and if the line width is longer than 60% of the frame
+				// avoids over-stretching
 				if( !isAtEndOfParagraph && (currentLineMetrics.width > 0.60 * _frame.size.width) ) 
 				{
 					// create a justified line and replace the current one with it
@@ -396,6 +403,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		if (lineBottom>maxY)
 		{
 			// doesn't fit any more
+			CFRelease(line);
 			break;
 		}
 		
@@ -412,6 +420,13 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		fittingLength += lineRange.length;
 		
 		lineRange.location += lineRange.length;
+		
+		// if there is a custom line height we need to adjust the ascender too
+		if (usesForcedLineHeight)
+		{
+			// causes the line frame to encompass also the extra space
+			newLine.ascent = lineHeight;
+		}
 		
 		previousLine = newLine;
 	//previousLineMetrics = currentLineMetrics;
@@ -492,9 +507,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 	//[self _correctLineOrigins];
 	
 	// --- begin workaround for image squishing bug in iOS < 4.2
-	DTSimpleVersion version = [[UIDevice currentDevice] osVersion];
-	
-	if (version.major<4 || (version.major==4 && version.minor < 2))
+	if ([DTVersion osVersionIsLessThen:@"4.2"])
 	{
 		[self _correctAttachmentHeights];
 	}
@@ -668,7 +681,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 	return frame;
 }
 
-- (void)drawInContext:(CGContextRef)context drawImages:(BOOL)drawImages
+- (void)drawInContext:(CGContextRef)context drawImages:(BOOL)drawImages drawLinks:(BOOL)drawLinks
 {
 	CGContextSaveGState(context);
 	
@@ -791,6 +804,10 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 				runIndex ++;
 			}
 			
+			if (!drawLinks && oneRun.isHyperlink)
+			{
+				continue;
+			}
 			
 			CGColorRef backgroundColor = (__bridge CGColorRef)[oneRun.attributes objectForKey:DTBackgroundColorAttribute];
 			
@@ -922,6 +939,11 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		for (DTCoreTextGlyphRun *oneRun in oneLine.glyphRuns)
 		{
 			if (!CGRectIntersectsRect(rect, oneRun.frame))
+			{
+				continue;
+			}
+			
+			if (!drawLinks && oneRun.isHyperlink)
 			{
 				continue;
 			}

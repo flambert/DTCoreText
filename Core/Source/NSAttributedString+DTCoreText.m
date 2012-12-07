@@ -116,11 +116,11 @@
 
 - (NSRange)_rangeOfObject:(id)object inArrayBehindAttribute:(NSString *)attribute atIndex:(NSUInteger)location
 {
-	NSInteger searchIndex = location;
+	NSUInteger searchIndex = location;
 	
 	NSArray *arrayAtIndex;
-	NSInteger minFoundIndex = NSIntegerMax;
-	NSInteger maxFoundIndex = 0;
+	NSUInteger minFoundIndex = NSUIntegerMax;
+	NSUInteger maxFoundIndex = 0;
 	
 	BOOL foundList = NO;
 	
@@ -348,7 +348,7 @@
 	
 	NSArray *previousListStyles = nil;
 
-	for (int i=0; i<[paragraphs count]; i++)
+	for (NSUInteger i=0; i<[paragraphs count]; i++)
 	{
 		NSString *oneParagraph = [paragraphs objectAtIndex:i];
 		NSRange paragraphRange = NSMakeRange(location, [oneParagraph length]);
@@ -464,7 +464,7 @@
 		
 		if (headerLevel)
 		{
-			blockElement = [NSString stringWithFormat:@"h%d", [headerLevel integerValue]];
+			blockElement = [NSString stringWithFormat:@"h%d", (int)[headerLevel integerValue]];
 		}
 		
 		if ([paragraphs lastObject] == oneParagraph)
@@ -686,6 +686,34 @@
 				}
 			}
 			
+			NSNumber *superscript = [attributes objectForKey:(id)kCTSuperscriptAttributeName];
+			if (superscript)
+			{
+				NSInteger style = [superscript integerValue];
+				
+				switch (style)
+				{
+					case 1:
+					{
+						fontStyle = [fontStyle stringByAppendingString:@"vertical-align:super;"];
+						break;
+					}
+						
+					case -1:
+					{
+						fontStyle = [fontStyle stringByAppendingString:@"vertical-align:sub;"];
+						break;
+					}
+						
+					default:
+					{
+						// all other are baseline because we don't support anything else for text
+						fontStyle = [fontStyle stringByAppendingString:@"vertical-align:baseline;"];
+						
+						break;
+					}
+				}
+			}
 			
 			NSURL *url = [attributes objectForKey:DTLinkAttribute];
 			
@@ -748,7 +776,7 @@
 	return [tmpString stringByReplacingOccurrencesOfString:UNICODE_OBJECT_PLACEHOLDER withString:@""];
 }
 
-#pragma Generating Special Attributed Strings
+#pragma mark Generating Special Attributed Strings
 + (NSAttributedString *)prefixForListItemWithCounter:(NSUInteger)listCounter listStyle:(DTCSSListStyle *)listStyle listIndent:(CGFloat)listIndent attributes:(NSDictionary *)attributes
 {
 	// get existing values from attributes
@@ -794,7 +822,7 @@
 		fontDesc.boldTrait = NO;
 		fontDesc.italicTrait = NO;
 		
-		CTFontRef font = [fontDesc newMatchingFont];
+		font = [fontDesc newMatchingFont];
 		
 		[newAttributes setObject:CFBridgingRelease(font) forKey:(id)kCTFontAttributeName];
 	}
@@ -812,6 +840,14 @@
 		[newAttributes setObject:CFBridgingRelease(newParagraphStyle) forKey:(id)kCTParagraphStyleAttributeName];
 	}
 	
+	// add textBlock if there's one (this has padding and background color)
+	NSArray *textBlocks = [attributes objectForKey:DTTextBlocksAttribute];
+	if (textBlocks)
+	{
+		[newAttributes setObject:textBlocks forKey:DTTextBlocksAttribute];
+	}
+	
+	// transfer list style to new attributes
 	if (listStyle)
 	{
 		[newAttributes setObject:[NSArray arrayWithObject:listStyle] forKey:DTTextListsAttribute];
@@ -840,7 +876,6 @@
 		}
 		
 		NSMutableAttributedString *tmpStr = [[NSMutableAttributedString alloc] initWithString:prefix attributes:newAttributes];
-		
 		
 		if (image)
 		{

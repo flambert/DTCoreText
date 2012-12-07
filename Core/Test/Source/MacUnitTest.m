@@ -10,7 +10,7 @@
 #import "DTHTMLAttributedStringBuilder.h"
 #import "NSString+SlashEscaping.h"
 
-#import </usr/include/objc/objc-class.h>
+#import <objc/objc-class.h>
 
 #define TESTCASE_FILE_EXTENSION @"html"
 //#define ONLY_TEST_CURRENT 1
@@ -57,6 +57,11 @@ NSString *testCaseNameFromURL(NSURL *URL, BOOL withSpaces)
 		{
 			continue;
 		}
+#else
+			if ([[testFile lastPathComponent] isEqualToString:@"CurrentTest.html"])
+			{
+				continue;
+			}
 #endif
 			
 			if (![[testFile pathExtension] isEqualToString:TESTCASE_FILE_EXTENSION])
@@ -75,7 +80,13 @@ NSString *testCaseNameFromURL(NSURL *URL, BOOL withSpaces)
 				[test internalTestCaseWithURL:URL withTempPath:tempPath];
 			};
 			
-			IMP myIMP = imp_implementationWithBlock((__bridge void *)impBlock);
+			// See http://stackoverflow.com/questions/6357663/casting-a-block-to-a-void-for-dynamic-class-method-resolution
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_7
+			void *impBlockForIMP = (void *)objc_unretainedPointer(impBlock);
+#else
+			id impBlockForIMP = (__bridge id)objc_unretainedPointer(impBlock);
+#endif
+			IMP myIMP = imp_implementationWithBlock(impBlockForIMP);
 			
 			SEL selector = NSSelectorFromString(selectorName);
 			
@@ -125,8 +136,6 @@ NSString *testCaseNameFromURL(NSURL *URL, BOOL withSpaces)
 	// our own builder
 	DTHTMLAttributedStringBuilder *doc = [[DTHTMLAttributedStringBuilder alloc] initWithHTML:testData options:nil documentAttributes:NULL];
 
-	[doc buildString];
-	
 	NSAttributedString *iosAttributedString = [doc generatedAttributedString];
 	NSString *iosString = [iosAttributedString string];
 	
