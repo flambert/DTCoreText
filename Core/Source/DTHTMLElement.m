@@ -6,8 +6,19 @@
 //  Copyright 2011 Drobnik.com. All rights reserved.
 //
 
-#import "DTCoreText.h"
 #import "DTHTMLElement.h"
+#import "DTTextAttachment.h"
+#import "NSAttributedStringRunDelegates.h"
+#import "DTCoreTextConstants.h"
+#import "DTCoreTextParagraphStyle.h"
+#import "DTCoreTextFontDescriptor.h"
+#import "NSString+CSS.h"
+#import "DTTextBlock.h"
+#import "DTCSSListStyle.h"
+#import "NSAttributedString+SmallCaps.h"
+#import "DTColor+HTML.h"
+#import "NSCharacterSet+HTML.h"
+#import "NSString+HTML.h"
 
 @interface DTHTMLElement ()
 

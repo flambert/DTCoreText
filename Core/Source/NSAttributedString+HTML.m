@@ -12,7 +12,9 @@
 #import <ApplicationServices/ApplicationServices.h>
 #endif
 
-#import "DTCoreText.h"
+#import "NSAttributedString+HTML.h"
+#import "DTCoreTextConstants.h"
+#import "DTHTMLAttributedStringBuilder.h"
 
 @implementation NSAttributedString (HTML)
 

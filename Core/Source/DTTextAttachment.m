@@ -7,7 +7,11 @@
 //
 
 #import "DTTextAttachment.h"
-#import "DTCoreText.h"
+#import "DTHTMLElement.h"
+#import "DTCoreTextConstants.h"
+#import "CGUtils.h"
+#import "NSData+Base64.h"
+#import "DTImage+HTML.h"
 
 @implementation DTTextAttachment
 {

@@ -7,8 +7,9 @@
 //
 
 #import "NSMutableAttributedString+HTML.h"
-
-#import "DTCoreText.h"
+#import "DTCoreTextConstants.h"
+#import "DTCoreTextParagraphStyle.h"
+#import "DTCoreTextFontDescriptor.h"
 
 @implementation NSMutableAttributedString (HTML)
 

@@ -7,7 +7,7 @@
 //
 
 #import "NSAttributedString+SmallCaps.h"
-#import "DTCoreText.h"
+#import "DTCoreTextFontDescriptor.h"
 
 @implementation NSAttributedString (SmallCaps)
 

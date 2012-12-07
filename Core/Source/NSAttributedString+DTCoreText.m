@@ -6,8 +6,14 @@
 //  Copyright (c) 2012 Drobnik.com. All rights reserved.
 //
 
-#import "DTCoreText.h"
 #import "NSAttributedString+DTCoreText.h"
+#import "DTTextAttachment.h"
+#import "DTCoreTextConstants.h"
+#import "DTCSSListStyle.h"
+#import "DTCoreTextParagraphStyle.h"
+#import "DTCoreTextFontDescriptor.h"
+#import "NSString+HTML.h"
+#import "DTColor+HTML.h"
 
 @implementation NSAttributedString (DTCoreText)
 

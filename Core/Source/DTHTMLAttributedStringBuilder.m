@@ -6,8 +6,20 @@
 //  Copyright (c) 2012 Drobnik.com. All rights reserved.
 //
 
-#import "DTCoreText.h"
 #import "DTHTMLAttributedStringBuilder.h"
+#import "DTCoreTextConstants.h"
+#import "DTCSSStylesheet.h"
+#import "DTCoreTextFontDescriptor.h"
+#import "DTCoreTextParagraphStyle.h"
+#import "DTHTMLElement.h"
+#import "DTCSSListStyle.h"
+#import "DTColor+HTML.h"
+#import "DTTextAttachment.h"
+#import "NSMutableAttributedString+HTML.h"
+#import "NSString+Paragraphs.h"
+#import "NSAttributedString+DTCoreText.h"
+#import "NSString+HTML.h"
+#import "NSMutableString+HTML.h"
 
 @interface DTHTMLAttributedStringBuilder ()
 
