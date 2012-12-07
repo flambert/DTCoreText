@@ -14,6 +14,7 @@
 #import "DTCoreTextFontDescriptor.h"
 #import "NSString+HTML.h"
 #import "DTColor+HTML.h"
+#import "NSAttributedStringRunDelegates.h"
 
 @implementation NSAttributedString (DTCoreText)
 
